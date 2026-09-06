@@ -5,8 +5,12 @@ export function formatSeconds(seconds) {
   return `${min}:${sec < 10 ? "0" : ""}${sec}`;
 }
 
-export function shuffle(arr) { return [...arr].sort(() => 0.5 - Math.random()); }
-export function sample(arr, n) { return shuffle(arr).slice(0, Math.min(n, arr.length)); }
+export function shuffle(arr) {
+  return [...arr].sort(() => 0.5 - Math.random());
+}
+export function sample(arr, n) {
+  return shuffle(arr).slice(0, Math.min(n, arr.length));
+}
 
 export function dedupeByTitleArtist(arr) {
   const seen = new Set();

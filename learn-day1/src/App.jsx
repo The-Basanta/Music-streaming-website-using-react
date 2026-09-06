@@ -7,80 +7,613 @@ import TrackModal from "./components/TrackModal";
 import HomeView from "./pages/HomeView";
 import PlaylistsView from "./pages/PlaylistsView";
 import TopHitsView from "./pages/TopHitsView";
-import { COUNTRY, FALLBACK_SEEDS, GENRE_MATCH, SPOTIFY_ACCESS_TOKEN, YOUTUBE_API_KEY } from "./data/constants";
-import { fetchCountryChart, fetchSearch, getMatchedFallbackCatalog, searchSpotifyTrack, searchYouTubeVideoId } from "./services/musicApi";
+import {
+  COUNTRY,
+  FALLBACK_SEEDS,
+  GENRE_MATCH,
+  SPOTIFY_ACCESS_TOKEN,
+  YOUTUBE_API_KEY,
+} from "./data/constants";
+import {
+  fetchCountryChart,
+  fetchSearch,
+  getMatchedFallbackCatalog,
+  searchSpotifyTrack,
+  searchYouTubeVideoId,
+} from "./services/musicApi";
 import { loadSpotifySdk, playSpotifyTrack } from "./services/playbackApi";
-import { dedupeByArtist, dedupeByTitleArtist, sample } from "./utils/musicUtils";
+import {
+  dedupeByArtist,
+  dedupeByTitleArtist,
+  sample,
+} from "./utils/musicUtils";
 
 let fallbackCatalog = FALLBACK_SEEDS;
-function fallbackForCountry(country) { return fallbackCatalog.filter((track) => track.country === country.toUpperCase()); }
-function mergeWithFallback(tracks) { return dedupeByTitleArtist([...(tracks || []), ...fallbackCatalog]); }
+function fallbackForCountry(country) {
+  return fallbackCatalog.filter(
+    (track) => track.country === country.toUpperCase(),
+  );
+}
+function mergeWithFallback(tracks) {
+  return dedupeByTitleArtist([...(tracks || []), ...fallbackCatalog]);
+}
 
+// Main application component
 export default function App() {
   const [activeTab, setActiveTab] = useState("home");
-  const [orbitTracks, setOrbitTracks] = useState([]), [newArtists, setNewArtists] = useState([]), [popTracks, setPopTracks] = useState([]), [rnbTracks, setRnbTracks] = useState([]), [edmTracks, setEdmTracks] = useState([]), [homeLoading, setHomeLoading] = useState(true);
+  const [orbitTracks, setOrbitTracks] = useState([]),
+    [newArtists, setNewArtists] = useState([]),
+    [popTracks, setPopTracks] = useState([]),
+    [rnbTracks, setRnbTracks] = useState([]),
+    [edmTracks, setEdmTracks] = useState([]),
+    [homeLoading, setHomeLoading] = useState(true);
   const homePoolRef = useRef([]);
-  const [globalHits, setGlobalHits] = useState([]), [usaHits, setUsaHits] = useState([]), [japanHits, setJapanHits] = useState([]), [phHits, setPhHits] = useState([]), [latinHits, setLatinHits] = useState([]), [hitsLoading, setHitsLoading] = useState(true);
+  const [globalHits, setGlobalHits] = useState([]),
+    [usaHits, setUsaHits] = useState([]),
+    [japanHits, setJapanHits] = useState([]),
+    [phHits, setPhHits] = useState([]),
+    [latinHits, setLatinHits] = useState([]),
+    [hitsLoading, setHitsLoading] = useState(true);
   const chartPoolRef = useRef({ us: [], gb: [], jp: [], ph: [], latin: [] });
-  const [playlists, setPlaylists] = useState({}), [searchQuery, setSearchQuery] = useState(""), [searchResults, setSearchResults] = useState([]), [searchActive, setSearchActive] = useState(false), [modalOpen, setModalOpen] = useState(false), [modalTitle, setModalTitle] = useState(""), [modalTracks, setModalTracks] = useState([]), [modalLoading, setModalLoading] = useState(false);
+  const [playlists, setPlaylists] = useState({}),
+    [searchQuery, setSearchQuery] = useState(""),
+    [searchResults, setSearchResults] = useState([]),
+    [searchActive, setSearchActive] = useState(false),
+    [modalOpen, setModalOpen] = useState(false),
+    [modalTitle, setModalTitle] = useState(""),
+    [modalTracks, setModalTracks] = useState([]),
+    [modalLoading, setModalLoading] = useState(false);
   const searchTimer = useRef(null);
-  const [currentTrack, setCurrentTrack] = useState(null), [currentList, setCurrentList] = useState([]), [currentIndex, setCurrentIndex] = useState(0), [isPlaying, setIsPlaying] = useState(false), [currentTime, setCurrentTime] = useState(0), [duration, setDuration] = useState(0), [volume, setVolumeState] = useState(80), [loadingTrack, setLoadingTrack] = useState(false), [playbackNote, setPlaybackNote] = useState(""), [playerExpanded, setPlayerExpanded] = useState(false), [volumeHovered, setVolumeHovered] = useState(false), [ytReady, setYtReady] = useState(false), [spotifyReady, setSpotifyReady] = useState(false);
-  const audioRef = useRef(null), ytPlayerRef = useRef(null), spotifyPlayerRef = useRef(null), playbackModeRef = useRef(null), pollRef = useRef(null), nextTrackRef = useRef(() => {});
+  const [currentTrack, setCurrentTrack] = useState(null),
+    [currentList, setCurrentList] = useState([]),
+    [currentIndex, setCurrentIndex] = useState(0),
+    [isPlaying, setIsPlaying] = useState(false),
+    [currentTime, setCurrentTime] = useState(0),
+    [duration, setDuration] = useState(0),
+    [volume, setVolumeState] = useState(80),
+    [loadingTrack, setLoadingTrack] = useState(false),
+    [playbackNote, setPlaybackNote] = useState(""),
+    [playerExpanded, setPlayerExpanded] = useState(false),
+    [volumeHovered, setVolumeHovered] = useState(false),
+    [ytReady, setYtReady] = useState(false),
+    [spotifyReady, setSpotifyReady] = useState(false);
+  const audioRef = useRef(null),
+    ytPlayerRef = useRef(null),
+    spotifyPlayerRef = useRef(null),
+    playbackModeRef = useRef(null),
+    pollRef = useRef(null),
+    nextTrackRef = useRef(() => {});
 
-  useEffect(() => { loadSpotifySdk(() => setSpotifyReady(true)); }, []);
+  useEffect(() => {
+    loadSpotifySdk(() => setSpotifyReady(true));
+  }, []);
   useEffect(() => {
     if (!spotifyReady || spotifyPlayerRef.current) return;
-    const player = new window.Spotify.Player({ name: "BDplay Web Player", getOAuthToken: (callback) => callback(SPOTIFY_ACCESS_TOKEN), volume: 0.8 });
-    player.addListener("ready", ({ device_id }) => { spotifyPlayerRef.current.deviceId = device_id; setPlaybackNote("Spotify speaker connected."); });
-    player.addListener("player_state_changed", (state) => { if (state) { setIsPlaying(!state.paused); setCurrentTime(state.position / 1000); setDuration(state.duration / 1000); } });
-    player.addListener("initialization_error", ({ message }) => setPlaybackNote(`Spotify: ${message}`));
-    player.addListener("authentication_error", ({ message }) => setPlaybackNote(`Spotify login required: ${message}`));
-    player.addListener("account_error", ({ message }) => setPlaybackNote(`Spotify Premium required: ${message}`));
-    player.connect(); spotifyPlayerRef.current = player; return () => player.disconnect();
+    const player = new window.Spotify.Player({
+      name: "BDplay Web Player",
+      getOAuthToken: (callback) => callback(SPOTIFY_ACCESS_TOKEN),
+      volume: 0.8,
+    });
+    player.addListener("ready", ({ device_id }) => {
+      spotifyPlayerRef.current.deviceId = device_id;
+      setPlaybackNote("Spotify speaker connected.");
+    });
+    player.addListener("player_state_changed", (state) => {
+      if (state) {
+        setIsPlaying(!state.paused);
+        setCurrentTime(state.position / 1000);
+        setDuration(state.duration / 1000);
+      }
+    });
+    player.addListener("initialization_error", ({ message }) =>
+      setPlaybackNote(`Spotify: ${message}`),
+    );
+    player.addListener("authentication_error", ({ message }) =>
+      setPlaybackNote(`Spotify login required: ${message}`),
+    );
+    player.addListener("account_error", ({ message }) =>
+      setPlaybackNote(`Spotify Premium required: ${message}`),
+    );
+    player.connect();
+    spotifyPlayerRef.current = player;
+    return () => player.disconnect();
   }, [spotifyReady]);
   useEffect(() => {
-    if (window.YT?.Player) { window.setTimeout(() => setYtReady(true), 0); return undefined; }
-    const tag = document.createElement("script"); tag.src = "https://www.youtube.com/iframe_api"; document.body.appendChild(tag);
-    const previous = window.onYouTubeIframeAPIReady; window.onYouTubeIframeAPIReady = () => { if (previous) previous(); setYtReady(true); };
+    if (window.YT?.Player) {
+      window.setTimeout(() => setYtReady(true), 0);
+      return undefined;
+    }
+    const tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.body.appendChild(tag);
+    const previous = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (previous) previous();
+      setYtReady(true);
+    };
     return undefined;
   }, []);
   useEffect(() => {
     if (!ytReady || ytPlayerRef.current) return;
-    ytPlayerRef.current = new window.YT.Player("yt-player-container", { height: "0", width: "0", playerVars: { playsinline: 1 }, events: { onStateChange: (event) => { const states = window.YT.PlayerState; if (event.data === states.PLAYING) { setIsPlaying(true); setLoadingTrack(false); setDuration(ytPlayerRef.current.getDuration() || 0); } else if (event.data === states.PAUSED) setIsPlaying(false); else if (event.data === states.ENDED) nextTrackRef.current(); } } });
+    ytPlayerRef.current = new window.YT.Player("yt-player-container", {
+      height: "0",
+      width: "0",
+      playerVars: { playsinline: 1 },
+      events: {
+        onStateChange: (event) => {
+          const states = window.YT.PlayerState;
+          if (event.data === states.PLAYING) {
+            setIsPlaying(true);
+            setLoadingTrack(false);
+            setDuration(ytPlayerRef.current.getDuration() || 0);
+          } else if (event.data === states.PAUSED) setIsPlaying(false);
+          else if (event.data === states.ENDED) nextTrackRef.current();
+        },
+      },
+    });
   }, [ytReady]);
-  useEffect(() => { clearInterval(pollRef.current); if (!isPlaying) return undefined; pollRef.current = setInterval(() => { if (playbackModeRef.current === "youtube" && ytPlayerRef.current?.getCurrentTime) { setCurrentTime(ytPlayerRef.current.getCurrentTime() || 0); setDuration(ytPlayerRef.current.getDuration() || 0); } else if (playbackModeRef.current === "spotify" && spotifyPlayerRef.current) spotifyPlayerRef.current.getCurrentState().then((state) => { if (state) { setCurrentTime(state.position / 1000); setDuration(state.duration / 1000); } }); else if (playbackModeRef.current === "preview" && audioRef.current) { setCurrentTime(audioRef.current.currentTime || 0); setDuration(audioRef.current.duration || 0); } }, 400); return () => clearInterval(pollRef.current); }, [isPlaying]);
+  useEffect(() => {
+    clearInterval(pollRef.current);
+    if (!isPlaying) return undefined;
+    pollRef.current = setInterval(() => {
+      if (
+        playbackModeRef.current === "youtube" &&
+        ytPlayerRef.current?.getCurrentTime
+      ) {
+        setCurrentTime(ytPlayerRef.current.getCurrentTime() || 0);
+        setDuration(ytPlayerRef.current.getDuration() || 0);
+      } else if (
+        playbackModeRef.current === "spotify" &&
+        spotifyPlayerRef.current
+      )
+        spotifyPlayerRef.current.getCurrentState().then((state) => {
+          if (state) {
+            setCurrentTime(state.position / 1000);
+            setDuration(state.duration / 1000);
+          }
+        });
+      else if (playbackModeRef.current === "preview" && audioRef.current) {
+        setCurrentTime(audioRef.current.currentTime || 0);
+        setDuration(audioRef.current.duration || 0);
+      }
+    }, 400);
+    return () => clearInterval(pollRef.current);
+  }, [isPlaying]);
 
-  const refreshHomeSections = useCallback((pool) => { setOrbitTracks(sample(pool, 12)); setNewArtists(sample(dedupeByArtist(pool), 12)); setPopTracks(sample(pool.filter((track) => GENRE_MATCH.pop.test(track.genre)), 20)); setRnbTracks(sample(pool.filter((track) => GENRE_MATCH.rnb.test(track.genre)), 20)); setEdmTracks(sample(pool.filter((track) => GENRE_MATCH.edm.test(track.genre)), 20)); }, []);
-  const loadHome = useCallback(async () => { setHomeLoading(true); homePoolRef.current = fallbackCatalog; refreshHomeSections(fallbackCatalog); setHomeLoading(false); const [charts, matched] = await Promise.all([Promise.all([COUNTRY.US, COUNTRY.UK, COUNTRY.AU, COUNTRY.CA, COUNTRY.DE].map((country) => fetchCountryChart(country, 50))), getMatchedFallbackCatalog()]); fallbackCatalog = matched; const pool = mergeWithFallback(charts.flat()); homePoolRef.current = pool; refreshHomeSections(pool); }, [refreshHomeSections]);
-  const refreshHitsSections = useCallback(() => { const { us, gb, jp, ph, latin } = chartPoolRef.current; setGlobalHits(sample(dedupeByTitleArtist([...us, ...gb]), 20)); setUsaHits(sample(us, 20)); setJapanHits(sample(jp, Math.min(20, jp.length))); setPhHits(sample(ph, Math.min(20, ph.length))); setLatinHits(sample(latin, Math.min(20, latin.length))); }, []);
-  const loadTopHits = useCallback(async () => { setHitsLoading(true); chartPoolRef.current = { us: fallbackForCountry("US"), gb: fallbackForCountry("UK"), jp: fallbackForCountry("JP"), ph: fallbackForCountry("PH"), latin: fallbackForCountry("MX") }; refreshHitsSections(); setHitsLoading(false); const [usResult, gbResult, jpResult, phResult, mxResult, arResult, matched] = await Promise.all([fetchCountryChart(COUNTRY.US, 100), fetchCountryChart(COUNTRY.UK, 100), fetchCountryChart(COUNTRY.JP, 100), fetchCountryChart(COUNTRY.PH, 100), fetchCountryChart(COUNTRY.MX, 100), fetchCountryChart(COUNTRY.AR, 100), getMatchedFallbackCatalog()]); fallbackCatalog = matched; const us = dedupeByTitleArtist([...usResult, ...fallbackForCountry("US")]), gb = dedupeByTitleArtist([...gbResult, ...fallbackForCountry("UK")]), jp = dedupeByTitleArtist([...jpResult, ...fallbackForCountry("JP")]), ph = dedupeByTitleArtist([...phResult, ...fallbackForCountry("PH")]), mx = dedupeByTitleArtist([...mxResult, ...fallbackForCountry("MX")]), ar = dedupeByTitleArtist([...arResult, ...fallbackForCountry("AR")]); chartPoolRef.current = { us, gb, jp, ph, latin: dedupeByTitleArtist([...mx, ...ar]) }; refreshHitsSections(); }, [refreshHitsSections]);
-  useEffect(() => { window.setTimeout(() => { loadHome(); setVolume(80); }, 0); }, [loadHome]);
-  function switchTab(tab) { setActiveTab(tab); if (tab === "home") loadHome(); if (tab === "hits") loadTopHits(); }
-  function shuffleHomeSection(setter, matcher, count) { const filtered = matcher ? homePoolRef.current.filter((track) => matcher.test(track.genre)) : homePoolRef.current; setter(sample(filtered, count)); }
-
-  async function playTrack(track, list, index) { if (!track) return; setCurrentTrack(track); if (list) setCurrentList(list); if (index !== undefined) setCurrentIndex(index); setCurrentTime(0); setDuration(0); setLoadingTrack(true); setPlaybackNote(""); audioRef.current?.pause(); ytPlayerRef.current?.stopVideo?.(); spotifyPlayerRef.current?.pause?.();
-    if (spotifyPlayerRef.current) { const spotifyTrack = await searchSpotifyTrack(track); if (spotifyTrack) { playbackModeRef.current = "spotify"; setCurrentTrack({ ...track, ...spotifyTrack }); setDuration(spotifyTrack.durationSeconds); spotifyPlayerRef.current.activateElement(); if (await playSpotifyTrack(spotifyPlayerRef.current, spotifyTrack)) { setLoadingTrack(false); return; } setPlaybackNote("Spotify could not start playback. Check Premium access and device connection."); } }
-    const hasYoutubeKey = YOUTUBE_API_KEY && !YOUTUBE_API_KEY.startsWith("YOUR_");
-    if (hasYoutubeKey && ytPlayerRef.current) { const videoId = await searchYouTubeVideoId(`${track.artist} ${track.title} official audio`); if (videoId) { playbackModeRef.current = "youtube"; ytPlayerRef.current.loadVideoById(videoId); ytPlayerRef.current.setVolume(volume); setLoadingTrack(false); return; } setPlaybackNote("Full track not found on YouTube - playing the matched preview."); } else if (!hasYoutubeKey) setPlaybackNote("Playing the matched track preview. Add a YouTube API key for full-length playback.");
-    let playableTrack = track; if (!track.previewUrl && !track.fullTrackUrl) { const matches = await fetchSearch(`${track.title} ${track.artist}`, 5); playableTrack = matches.find((match) => match.title.toLowerCase() === track.title.toLowerCase() && match.artist.toLowerCase().includes(track.artist.toLowerCase())) || track; setCurrentTrack(playableTrack); if (playableTrack.previewUrl && list) setCurrentList(list.map((item) => item.id === track.id ? playableTrack : item)); }
-    const audioSource = playableTrack.fullTrackUrl || playableTrack.previewUrl; if (audioSource && audioRef.current) { playbackModeRef.current = "preview"; audioRef.current.src = audioSource; audioRef.current.currentTime = 0; audioRef.current.play().then(() => setLoadingTrack(false)).catch((error) => { console.error("Audio playback error", error); setPlaybackNote("This track could not be played by the browser."); setLoadingTrack(false); }); } else { setLoadingTrack(false); setPlaybackNote("No playable source available for this track."); }
+  const refreshHomeSections = useCallback((pool) => {
+    setOrbitTracks(sample(pool, 12));
+    setNewArtists(sample(dedupeByArtist(pool), 12));
+    setPopTracks(
+      sample(
+        pool.filter((track) => GENRE_MATCH.pop.test(track.genre)),
+        20,
+      ),
+    );
+    setRnbTracks(
+      sample(
+        pool.filter((track) => GENRE_MATCH.rnb.test(track.genre)),
+        20,
+      ),
+    );
+    setEdmTracks(
+      sample(
+        pool.filter((track) => GENRE_MATCH.edm.test(track.genre)),
+        20,
+      ),
+    );
+  }, []);
+  const loadHome = useCallback(async () => {
+    setHomeLoading(true);
+    homePoolRef.current = fallbackCatalog;
+    refreshHomeSections(fallbackCatalog);
+    setHomeLoading(false);
+    const [charts, matched] = await Promise.all([
+      Promise.all(
+        [COUNTRY.US, COUNTRY.UK, COUNTRY.AU, COUNTRY.CA, COUNTRY.DE].map(
+          (country) => fetchCountryChart(country, 50),
+        ),
+      ),
+      getMatchedFallbackCatalog(),
+    ]);
+    fallbackCatalog = matched;
+    const pool = mergeWithFallback(charts.flat());
+    homePoolRef.current = pool;
+    refreshHomeSections(pool);
+  }, [refreshHomeSections]);
+  const refreshHitsSections = useCallback(() => {
+    const { us, gb, jp, ph, latin } = chartPoolRef.current;
+    setGlobalHits(sample(dedupeByTitleArtist([...us, ...gb]), 20));
+    setUsaHits(sample(us, 20));
+    setJapanHits(sample(jp, Math.min(20, jp.length)));
+    setPhHits(sample(ph, Math.min(20, ph.length)));
+    setLatinHits(sample(latin, Math.min(20, latin.length)));
+  }, []);
+  const loadTopHits = useCallback(async () => {
+    setHitsLoading(true);
+    chartPoolRef.current = {
+      us: fallbackForCountry("US"),
+      gb: fallbackForCountry("UK"),
+      jp: fallbackForCountry("JP"),
+      ph: fallbackForCountry("PH"),
+      latin: fallbackForCountry("MX"),
+    };
+    refreshHitsSections();
+    setHitsLoading(false);
+    const [
+      usResult,
+      gbResult,
+      jpResult,
+      phResult,
+      mxResult,
+      arResult,
+      matched,
+    ] = await Promise.all([
+      fetchCountryChart(COUNTRY.US, 100),
+      fetchCountryChart(COUNTRY.UK, 100),
+      fetchCountryChart(COUNTRY.JP, 100),
+      fetchCountryChart(COUNTRY.PH, 100),
+      fetchCountryChart(COUNTRY.MX, 100),
+      fetchCountryChart(COUNTRY.AR, 100),
+      getMatchedFallbackCatalog(),
+    ]);
+    fallbackCatalog = matched;
+    const us = dedupeByTitleArtist([...usResult, ...fallbackForCountry("US")]),
+      gb = dedupeByTitleArtist([...gbResult, ...fallbackForCountry("UK")]),
+      jp = dedupeByTitleArtist([...jpResult, ...fallbackForCountry("JP")]),
+      ph = dedupeByTitleArtist([...phResult, ...fallbackForCountry("PH")]),
+      mx = dedupeByTitleArtist([...mxResult, ...fallbackForCountry("MX")]),
+      ar = dedupeByTitleArtist([...arResult, ...fallbackForCountry("AR")]);
+    chartPoolRef.current = {
+      us,
+      gb,
+      jp,
+      ph,
+      latin: dedupeByTitleArtist([...mx, ...ar]),
+    };
+    refreshHitsSections();
+  }, [refreshHitsSections]);
+  useEffect(() => {
+    window.setTimeout(() => {
+      loadHome();
+      setVolume(80);
+    }, 0);
+  }, [loadHome]);
+  function switchTab(tab) {
+    setActiveTab(tab);
+    if (tab === "home") loadHome();
+    if (tab === "hits") loadTopHits();
   }
-  function togglePlay() { if (!currentTrack) return; if (playbackModeRef.current === "spotify" && spotifyPlayerRef.current) isPlaying ? spotifyPlayerRef.current.pause() : spotifyPlayerRef.current.resume(); else if (playbackModeRef.current === "youtube" && ytPlayerRef.current) window.YT.PlayerState.PLAYING === ytPlayerRef.current.getPlayerState() ? ytPlayerRef.current.pauseVideo() : ytPlayerRef.current.playVideo(); else if (playbackModeRef.current === "preview" && audioRef.current) audioRef.current.paused ? audioRef.current.play() : audioRef.current.pause(); else playTrack(currentTrack, currentList, currentIndex); }
-  function nextTrack() { if (currentList.length) { const index = (currentIndex + 1) % currentList.length; playTrack(currentList[index], currentList, index); } }
-  function prevTrack() { if (currentList.length) { const index = (currentIndex - 1 + currentList.length) % currentList.length; playTrack(currentList[index], currentList, index); } }
-  useEffect(() => { nextTrackRef.current = nextTrack; });
-  function seekTrack(value) { const pct = Number(value) / 100; if (playbackModeRef.current === "spotify" && spotifyPlayerRef.current && duration) spotifyPlayerRef.current.seek(pct * duration * 1000); else if (playbackModeRef.current === "youtube" && ytPlayerRef.current && duration) ytPlayerRef.current.seekTo(pct * duration, true); else if (playbackModeRef.current === "preview" && audioRef.current?.duration) audioRef.current.currentTime = pct * audioRef.current.duration; }
-  function setVolume(value) { setVolumeState(Number(value)); if (playbackModeRef.current === "youtube") ytPlayerRef.current?.setVolume?.(Number(value)); else if (playbackModeRef.current === "spotify") spotifyPlayerRef.current?.setVolume(Number(value) / 100); else if (audioRef.current) audioRef.current.volume = Math.max(0, Math.min(1, Number(value) / 100)); }
+  function shuffleHomeSection(setter, matcher, count) {
+    const filtered = matcher
+      ? homePoolRef.current.filter((track) => matcher.test(track.genre))
+      : homePoolRef.current;
+    setter(sample(filtered, count));
+  }
+
+  async function playTrack(track, list, index) {
+    if (!track) return;
+    setCurrentTrack(track);
+    if (list) setCurrentList(list);
+    if (index !== undefined) setCurrentIndex(index);
+    setCurrentTime(0);
+    setDuration(0);
+    setLoadingTrack(true);
+    setPlaybackNote("");
+    audioRef.current?.pause();
+    ytPlayerRef.current?.stopVideo?.();
+    spotifyPlayerRef.current?.pause?.();
+    if (spotifyPlayerRef.current) {
+      const spotifyTrack = await searchSpotifyTrack(track);
+      if (spotifyTrack) {
+        playbackModeRef.current = "spotify";
+        setCurrentTrack({ ...track, ...spotifyTrack });
+        setDuration(spotifyTrack.durationSeconds);
+        spotifyPlayerRef.current.activateElement();
+        if (await playSpotifyTrack(spotifyPlayerRef.current, spotifyTrack)) {
+          setLoadingTrack(false);
+          return;
+        }
+        setPlaybackNote(
+          "Spotify could not start playback. Check Premium access and device connection.",
+        );
+      }
+    }
+    const hasYoutubeKey =
+      YOUTUBE_API_KEY && !YOUTUBE_API_KEY.startsWith("YOUR_");
+    if (hasYoutubeKey && ytPlayerRef.current) {
+      const videoId = await searchYouTubeVideoId(
+        `${track.artist} ${track.title} official audio`,
+      );
+      if (videoId) {
+        playbackModeRef.current = "youtube";
+        ytPlayerRef.current.loadVideoById(videoId);
+        ytPlayerRef.current.setVolume(volume);
+        setLoadingTrack(false);
+        return;
+      }
+      setPlaybackNote(
+        "Full track not found on YouTube - playing the matched preview.",
+      );
+    } else if (!hasYoutubeKey)
+      setPlaybackNote(
+        "Playing the matched track preview. Add a YouTube API key for full-length playback.",
+      );
+    let playableTrack = track;
+    if (!track.previewUrl && !track.fullTrackUrl) {
+      const matches = await fetchSearch(`${track.title} ${track.artist}`, 5);
+      playableTrack =
+        matches.find(
+          (match) =>
+            match.title.toLowerCase() === track.title.toLowerCase() &&
+            match.artist.toLowerCase().includes(track.artist.toLowerCase()),
+        ) || track;
+      setCurrentTrack(playableTrack);
+      if (playableTrack.previewUrl && list)
+        setCurrentList(
+          list.map((item) => (item.id === track.id ? playableTrack : item)),
+        );
+    }
+    const audioSource = playableTrack.fullTrackUrl || playableTrack.previewUrl;
+    if (audioSource && audioRef.current) {
+      playbackModeRef.current = "preview";
+      audioRef.current.src = audioSource;
+      audioRef.current.currentTime = 0;
+      audioRef.current
+        .play()
+        .then(() => setLoadingTrack(false))
+        .catch((error) => {
+          console.error("Audio playback error", error);
+          setPlaybackNote("This track could not be played by the browser.");
+          setLoadingTrack(false);
+        });
+    } else {
+      setLoadingTrack(false);
+      setPlaybackNote("No playable source available for this track.");
+    }
+  }
+  function togglePlay() {
+    if (!currentTrack) return;
+    if (playbackModeRef.current === "spotify" && spotifyPlayerRef.current)
+      isPlaying
+        ? spotifyPlayerRef.current.pause()
+        : spotifyPlayerRef.current.resume();
+    else if (playbackModeRef.current === "youtube" && ytPlayerRef.current)
+      window.YT.PlayerState.PLAYING === ytPlayerRef.current.getPlayerState()
+        ? ytPlayerRef.current.pauseVideo()
+        : ytPlayerRef.current.playVideo();
+    else if (playbackModeRef.current === "preview" && audioRef.current)
+      audioRef.current.paused
+        ? audioRef.current.play()
+        : audioRef.current.pause();
+    else playTrack(currentTrack, currentList, currentIndex);
+  }
+  function nextTrack() {
+    if (currentList.length) {
+      const index = (currentIndex + 1) % currentList.length;
+      playTrack(currentList[index], currentList, index);
+    }
+  }
+  function prevTrack() {
+    if (currentList.length) {
+      const index =
+        (currentIndex - 1 + currentList.length) % currentList.length;
+      playTrack(currentList[index], currentList, index);
+    }
+  }
+  useEffect(() => {
+    nextTrackRef.current = nextTrack;
+  });
+  function seekTrack(value) {
+    const pct = Number(value) / 100;
+    if (
+      playbackModeRef.current === "spotify" &&
+      spotifyPlayerRef.current &&
+      duration
+    )
+      spotifyPlayerRef.current.seek(pct * duration * 1000);
+    else if (
+      playbackModeRef.current === "youtube" &&
+      ytPlayerRef.current &&
+      duration
+    )
+      ytPlayerRef.current.seekTo(pct * duration, true);
+    else if (
+      playbackModeRef.current === "preview" &&
+      audioRef.current?.duration
+    )
+      audioRef.current.currentTime = pct * audioRef.current.duration;
+  }
+  function setVolume(value) {
+    setVolumeState(Number(value));
+    if (playbackModeRef.current === "youtube")
+      ytPlayerRef.current?.setVolume?.(Number(value));
+    else if (playbackModeRef.current === "spotify")
+      spotifyPlayerRef.current?.setVolume(Number(value) / 100);
+    else if (audioRef.current)
+      audioRef.current.volume = Math.max(0, Math.min(1, Number(value) / 100));
+  }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { const audio = audioRef.current; if (!audio) return undefined; const onPlay = () => playbackModeRef.current === "preview" && setIsPlaying(true); const onPause = () => playbackModeRef.current === "preview" && setIsPlaying(false); const onEnded = () => playbackModeRef.current === "preview" && nextTrack(); audio.addEventListener("play", onPlay); audio.addEventListener("pause", onPause); audio.addEventListener("ended", onEnded); return () => { audio.removeEventListener("play", onPlay); audio.removeEventListener("pause", onPause); audio.removeEventListener("ended", onEnded); }; }, [currentList, currentIndex]);
-  function handleSearch(value) { setSearchQuery(value); clearTimeout(searchTimer.current); if (!value.trim()) { setSearchResults([]); setSearchActive(false); return; } searchTimer.current = setTimeout(async () => { setSearchResults(await fetchSearch(value, 20)); setSearchActive(true); }, 300); }
-  function clearSearch() { setSearchQuery(""); setSearchResults([]); setSearchActive(false); }
-  async function showArtistTopHits(artist) { setModalOpen(true); setModalTitle(`Top Hits — ${artist}`); setModalLoading(true); setModalTracks(await fetchSearch(artist, 30)); setModalLoading(false); }
-  async function showAlbumTracks(album, artist) { setModalOpen(true); setModalTitle(`Album — ${album}`); setModalLoading(true); setModalTracks(await fetchSearch(`${album} ${artist}`, 30)); setModalLoading(false); }
-  function addCurrentToPlaylist() { if (!currentTrack) return alert("Please play a song first!"); const existing = Object.keys(playlists); let message = "Enter playlist name:"; if (existing.length) message += `\nExisting: ${existing.join(", ")}`; const name = prompt(message); if (name) setPlaylists((previous) => ({ ...previous, [name]: previous[name] ? [...previous[name], currentTrack] : [currentTrack] })); }
-  function createNewPlaylist() { const name = prompt("New playlist name:"); if (name) setPlaylists((previous) => previous[name] ? previous : { ...previous, [name]: [] }); }
-  function openPlaylist(name) { setModalOpen(true); setModalTitle(`Playlist — ${name}`); setModalTracks(playlists[name] || []); setModalLoading(false); }
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return undefined;
+    const onPlay = () =>
+      playbackModeRef.current === "preview" && setIsPlaying(true);
+    const onPause = () =>
+      playbackModeRef.current === "preview" && setIsPlaying(false);
+    const onEnded = () => playbackModeRef.current === "preview" && nextTrack();
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
+    audio.addEventListener("ended", onEnded);
+    return () => {
+      audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("ended", onEnded);
+    };
+  }, [currentList, currentIndex]);
+  function handleSearch(value) {
+    setSearchQuery(value);
+    clearTimeout(searchTimer.current);
+    if (!value.trim()) {
+      setSearchResults([]);
+      setSearchActive(false);
+      return;
+    }
+    searchTimer.current = setTimeout(async () => {
+      setSearchResults(await fetchSearch(value, 20));
+      setSearchActive(true);
+    }, 300);
+  }
+  function clearSearch() {
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchActive(false);
+  }
+  async function showArtistTopHits(artist) {
+    setModalOpen(true);
+    setModalTitle(`Top Hits — ${artist}`);
+    setModalLoading(true);
+    setModalTracks(await fetchSearch(artist, 30));
+    setModalLoading(false);
+  }
+  async function showAlbumTracks(album, artist) {
+    setModalOpen(true);
+    setModalTitle(`Album — ${album}`);
+    setModalLoading(true);
+    setModalTracks(await fetchSearch(`${album} ${artist}`, 30));
+    setModalLoading(false);
+  }
+  function addCurrentToPlaylist() {
+    if (!currentTrack) return alert("Please play a song first!");
+    const existing = Object.keys(playlists);
+    let message = "Enter playlist name:";
+    if (existing.length) message += `\nExisting: ${existing.join(", ")}`;
+    const name = prompt(message);
+    if (name)
+      setPlaylists((previous) => ({
+        ...previous,
+        [name]: previous[name]
+          ? [...previous[name], currentTrack]
+          : [currentTrack],
+      }));
+  }
+  function createNewPlaylist() {
+    const name = prompt("New playlist name:");
+    if (name)
+      setPlaylists((previous) =>
+        previous[name] ? previous : { ...previous, [name]: [] },
+      );
+  }
+  function openPlaylist(name) {
+    setModalOpen(true);
+    setModalTitle(`Playlist — ${name}`);
+    setModalTracks(playlists[name] || []);
+    setModalLoading(false);
+  }
   const progressPct = duration ? (currentTime / duration) * 100 : 0;
-  const topHitSections = [["Billboard Global Top Hits", globalHits], ["Billboard USA Top Hits", usaHits], ["Billboard Japan Top Hits", japanHits], ["Billboard Philippines Top Hits", phHits], ["Billboard Latin Top Hits", latinHits]];
-  return <div className="bdplay-root"><Header activeTab={activeTab} searchQuery={searchQuery} searchResults={searchResults} searchActive={searchActive} onSearch={handleSearch} onClearSearch={clearSearch} onPlay={playTrack} onSwitchTab={switchTab} />{activeTab === "home" && <HomeView orbitTracks={orbitTracks} homeLoading={homeLoading} newArtists={newArtists} popTracks={popTracks} rnbTracks={rnbTracks} edmTracks={edmTracks} onPlay={playTrack} onArtist={showArtistTopHits} onShuffleArtists={() => shuffleHomeSection(setNewArtists, null, 12)} onShuffleGenre={(matcher, count) => shuffleHomeSection(matcher === GENRE_MATCH.pop ? setPopTracks : matcher === GENRE_MATCH.rnb ? setRnbTracks : setEdmTracks, matcher, count)} />}{activeTab === "hits" && <TopHitsView sections={topHitSections} loading={hitsLoading} onPlay={playTrack} />}{activeTab === "playlists" && <PlaylistsView playlists={playlists} onCreate={createNewPlaylist} onOpen={openPlaylist} />}<TrackModal open={modalOpen} title={modalTitle} loading={modalLoading} tracks={modalTracks} onClose={() => setModalOpen(false)} onPlay={playTrack} />{playerExpanded && currentTrack && <ExpandedPlayer track={currentTrack} currentTime={currentTime} duration={duration} progressPct={progressPct} loading={loadingTrack} isPlaying={isPlaying} onClose={() => setPlayerExpanded(false)} onSeek={seekTrack} onPrevious={prevTrack} onToggle={togglePlay} onNext={nextTrack} />}<PlayerBar track={currentTrack} currentTime={currentTime} duration={duration} progressPct={progressPct} volume={volume} volumeHovered={volumeHovered} playbackNote={playbackNote} loading={loadingTrack} isPlaying={isPlaying} onOpen={() => currentTrack && setPlayerExpanded(true)} onArtist={showArtistTopHits} onAlbum={showAlbumTracks} onPrevious={prevTrack} onToggle={togglePlay} onNext={nextTrack} onAddPlaylist={addCurrentToPlaylist} onSeek={seekTrack} onVolumeEnter={() => setVolumeHovered(true)} onVolumeLeave={() => setVolumeHovered(false)} onVolume={setVolume} /><audio ref={audioRef} preload="metadata" /><div id="yt-player-container" className="yt-hidden" /></div>;
+  const topHitSections = [
+    ["Billboard Global Top Hits", globalHits],
+    ["Billboard USA Top Hits", usaHits],
+    ["Billboard Japan Top Hits", japanHits],
+    ["Billboard Philippines Top Hits", phHits],
+    ["Billboard Latin Top Hits", latinHits],
+  ];
+  return (
+    <div className="bdplay-root">
+      <Header
+        activeTab={activeTab}
+        searchQuery={searchQuery}
+        searchResults={searchResults}
+        searchActive={searchActive}
+        onSearch={handleSearch}
+        onClearSearch={clearSearch}
+        onPlay={playTrack}
+        onSwitchTab={switchTab}
+      />
+      {activeTab === "home" && (
+        <HomeView
+          orbitTracks={orbitTracks}
+          homeLoading={homeLoading}
+          newArtists={newArtists}
+          popTracks={popTracks}
+          rnbTracks={rnbTracks}
+          edmTracks={edmTracks}
+          onPlay={playTrack}
+          onArtist={showArtistTopHits}
+          onShuffleArtists={() => shuffleHomeSection(setNewArtists, null, 12)}
+          onShuffleGenre={(matcher, count) =>
+            shuffleHomeSection(
+              matcher === GENRE_MATCH.pop
+                ? setPopTracks
+                : matcher === GENRE_MATCH.rnb
+                  ? setRnbTracks
+                  : setEdmTracks,
+              matcher,
+              count,
+            )
+          }
+        />
+      )}
+      {activeTab === "hits" && (
+        <TopHitsView
+          sections={topHitSections}
+          loading={hitsLoading}
+          onPlay={playTrack}
+        />
+      )}
+      {activeTab === "playlists" && (
+        <PlaylistsView
+          playlists={playlists}
+          onCreate={createNewPlaylist}
+          onOpen={openPlaylist}
+        />
+      )}
+      <TrackModal
+        open={modalOpen}
+        title={modalTitle}
+        loading={modalLoading}
+        tracks={modalTracks}
+        onClose={() => setModalOpen(false)}
+        onPlay={playTrack}
+      />
+      {playerExpanded && currentTrack && (
+        <ExpandedPlayer
+          track={currentTrack}
+          currentTime={currentTime}
+          duration={duration}
+          progressPct={progressPct}
+          loading={loadingTrack}
+          isPlaying={isPlaying}
+          onClose={() => setPlayerExpanded(false)}
+          onSeek={seekTrack}
+          onPrevious={prevTrack}
+          onToggle={togglePlay}
+          onNext={nextTrack}
+        />
+      )}
+      <PlayerBar
+        track={currentTrack}
+        currentTime={currentTime}
+        duration={duration}
+        progressPct={progressPct}
+        volume={volume}
+        volumeHovered={volumeHovered}
+        playbackNote={playbackNote}
+        loading={loadingTrack}
+        isPlaying={isPlaying}
+        onOpen={() => currentTrack && setPlayerExpanded(true)}
+        onArtist={showArtistTopHits}
+        onAlbum={showAlbumTracks}
+        onPrevious={prevTrack}
+        onToggle={togglePlay}
+        onNext={nextTrack}
+        onAddPlaylist={addCurrentToPlaylist}
+        onSeek={seekTrack}
+        onVolumeEnter={() => setVolumeHovered(true)}
+        onVolumeLeave={() => setVolumeHovered(false)}
+        onVolume={setVolume}
+      />
+      <audio ref={audioRef} preload="metadata" />
+      <div id="yt-player-container" className="yt-hidden" />
+    </div>
+  );
 }
