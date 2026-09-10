@@ -8,7 +8,7 @@ import {
 
 const initialForm = { email: "", username: "", password: "", otp: "" };
 
-export default function AuthPanel({ open, onClose }) {
+export default function Login({ open, onClose }) {
   const [mode, setMode] = useState("login");
   const [step, setStep] = useState("form");
   const [form, setForm] = useState(initialForm);

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import AuthPanel from "./AuthPanel";
+import Login from "./login";
 
 export default function Header({
   activeTab,
@@ -86,7 +86,7 @@ export default function Header({
           <span aria-hidden="true">◉</span><span>Account</span>
         </button>
       </header>
-      <AuthPanel open={authOpen} onClose={() => setAuthOpen(false)} />
+      <Login open={authOpen} onClose={() => setAuthOpen(false)} />
     </>
   );
 }
