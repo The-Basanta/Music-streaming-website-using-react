@@ -1,4 +1,6 @@
-// Header component
+import { useState } from "react";
+import AuthPanel from "./AuthPanel";
+
 export default function Header({
   activeTab,
   searchQuery,
@@ -9,8 +11,11 @@ export default function Header({
   onPlay,
   onSwitchTab,
 }) {
+  const [authOpen, setAuthOpen] = useState(false);
+
   return (
-    <header>
+    <>
+      <header>
       <div className="logo">BDplay</div>
       <div className="nav-center">
         <div className="search-box">
@@ -76,7 +81,12 @@ export default function Header({
             Playlists
           </a>
         </nav>
-      </div>
-    </header>
+        </div>
+        <button className="account-button" type="button" onClick={() => setAuthOpen(true)} aria-label="Open BDplay account">
+          <span aria-hidden="true">◉</span><span>Account</span>
+        </button>
+      </header>
+      <AuthPanel open={authOpen} onClose={() => setAuthOpen(false)} />
+    </>
   );
 }

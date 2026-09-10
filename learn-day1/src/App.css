@@ -49,6 +49,29 @@ header {
 .clear-search { background: none; border: none; color: #777; font-size: 1.2rem; line-height: 1; cursor: pointer; padding: 0 2px; margin-left: 6px; transition: color 0.2s; }
 .clear-search:hover { color: #fff; }
 
+.account-button { display: inline-flex; align-items: center; gap: 7px; background: transparent; border: 1px solid #333; color: #fff; padding: 7px 10px; font-size: 0.68rem; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; }
+.account-button span:first-child { font-size: 0.9rem; }
+.account-button:hover { border-color: #fff; }
+
+.auth-overlay { position: fixed; inset: 0; z-index: 1200; display: flex; justify-content: flex-end; align-items: flex-start; padding: 78px 38px 24px; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
+.auth-panel { position: relative; width: min(330px, calc(100vw - 32px)); background: #101010; border: 1px solid #333; padding: 24px; box-shadow: 0 18px 60px rgba(0, 0, 0, 0.65); }
+.auth-close { position: absolute; top: 10px; right: 12px; border: 0; background: transparent; color: #aaa; font-size: 1.25rem; cursor: pointer; }
+.auth-kicker { color: #7dff9b; font-size: 0.62rem; letter-spacing: 2px; text-transform: uppercase; }
+.auth-panel h2 { color: #fff; font-size: 1.25rem; margin: 9px 0 5px; }
+.auth-intro { color: #888; font-size: 0.72rem; line-height: 1.5; margin-bottom: 18px; }
+.auth-form { display: grid; gap: 11px; }
+.auth-form label { display: grid; gap: 5px; color: #aaa; font-size: 0.68rem; }
+.auth-form input { width: 100%; border: 1px solid #333; background: #080808; color: #fff; padding: 9px 10px; outline: none; font-size: 0.78rem; }
+.auth-form input:focus { border-color: #7dff9b; }
+.auth-submit, .google-login { width: 100%; cursor: pointer; padding: 9px 10px; font-size: 0.72rem; }
+.auth-submit { border: 1px solid #7dff9b; background: #7dff9b; color: #07110a; margin-top: 4px; font-weight: 700; }
+.auth-submit:disabled { opacity: 0.55; cursor: wait; }
+.google-login { margin-top: 13px; border: 1px solid #444; background: #181818; color: #fff; }
+.google-login span { color: #7dff9b; font-weight: 700; margin-right: 8px; }
+.auth-message { color: #d9a441; font-size: 0.68rem; line-height: 1.4; margin-top: 12px; }
+.auth-switch { color: #888; font-size: 0.68rem; text-align: center; margin-top: 17px; }
+.auth-switch button { border: 0; background: none; color: #fff; text-decoration: underline; cursor: pointer; font-size: inherit; }
+
 .search-results { position: absolute; top: 40px; left: 0; width: 100%; background: #0d0d0d; border: 1px solid #222; max-height: 300px; overflow-y: auto; display: none; z-index: 150; border-radius: 8px; }
 .search-results.active { display: block; }
 .search-item { padding: 10px; border-bottom: 1px solid #1a1a1a; cursor: pointer; }
@@ -190,6 +213,8 @@ input[type="range"] { flex: 1; accent-color: #ffffff; cursor: pointer; }
   .player-controls { gap: 10px; }
   .progress-container { gap: 5px; }
   .expanded-player > img { width: min(78vw, 320px); }
+  .auth-overlay { padding: 74px 16px 16px; }
+  .auth-panel { width: 100%; }
 }
 
 @media (max-width: 400px) {
