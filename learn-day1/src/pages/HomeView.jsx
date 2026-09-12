@@ -50,7 +50,7 @@ export default function HomeView({
                   backgroundImage: `url('${track.cover}')`,
                   transform: `translate(${x}px, ${y}px) rotate(${-angle * (180 / Math.PI) + 90}deg)`,
                 }}
-                onClick={() => onPlay(track, orbitTracks, index)}
+                onClick={() => onPlay(track, [track], 0)}
               >
                 <div className="play-overlay">
                   <span>&#9654;</span>

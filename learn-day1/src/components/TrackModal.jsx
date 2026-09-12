@@ -22,7 +22,7 @@ export default function TrackModal({
             <div
               className="track-row"
               key={`${track.id}-${index}`}
-              onClick={() => onPlay(track, tracks, index)}
+              onClick={() => onPlay(track, [track], 0)}
             >
               <div>
                 <div className="media-title">

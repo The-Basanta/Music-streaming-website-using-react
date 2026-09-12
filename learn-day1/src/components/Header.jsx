@@ -49,7 +49,7 @@ export default function Header({
                   className="search-item"
                   key={`${track.id}-${index}`}
                   onClick={() => {
-                    onPlay(track, searchResults, index);
+                    onPlay(track, [track], 0);
                     onClearSearch();
                   }}
                 >
