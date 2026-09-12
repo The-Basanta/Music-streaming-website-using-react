@@ -11,6 +11,7 @@ export default function HomeView({
   popTracks,
   rnbTracks,
   edmTracks,
+  recommendationTracks,
   onPlay,
   onArtist,
   onShuffleArtists,
@@ -69,6 +70,9 @@ export default function HomeView({
           onShuffle={onShuffleArtists}
         />
         <ArtistGrid artists={newArtists} onSelectArtist={onArtist} />
+        <div style={{ height: 40 }} />
+        <SectionHeader title="Made For You" />
+        <TrackGrid tracks={recommendationTracks} onPlay={onPlay} />
         {sections.map(([title, tracks, matcher]) => (
           <div key={title}>
             <div style={{ height: 40 }} />

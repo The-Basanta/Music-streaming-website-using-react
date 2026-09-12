@@ -27,6 +27,11 @@ import {
   dedupeByTitleArtist,
   sample,
 } from "./utils/musicUtils";
+import {
+  buildRecommendations,
+  loadListeningHistory,
+  recordListening,
+} from "./utils/recommendationUtils";
 
 let fallbackCatalog = FALLBACK_SEEDS;
 function fallbackForCountry(country) {
@@ -62,7 +67,9 @@ export default function App() {
     [modalOpen, setModalOpen] = useState(false),
     [modalTitle, setModalTitle] = useState(""),
     [modalTracks, setModalTracks] = useState([]),
-    [modalLoading, setModalLoading] = useState(false);
+    [modalLoading, setModalLoading] = useState(false),
+    [listeningHistory, setListeningHistory] = useState(() => loadListeningHistory()),
+    [recommendationTracks, setRecommendationTracks] = useState([]);
   const searchTimer = useRef(null);
   const [currentTrack, setCurrentTrack] = useState(null),
     [currentList, setCurrentList] = useState([]),
@@ -202,11 +209,17 @@ export default function App() {
       ),
     );
   }, []);
+  const refreshRecommendations = useCallback((pool, history, searchTracks = []) => {
+    setRecommendationTracks(
+      buildRecommendations({ pool, history, searchTracks, count: 20 }),
+    );
+  }, []);
   const loadHome = useCallback(async () => {
     setHomeLoading(true);
     homePoolRef.current = fallbackCatalog;
     refreshHomeSections(fallbackCatalog);
     setHomeLoading(false);
+    refreshRecommendations(fallbackCatalog, loadListeningHistory());
     const [charts, matched] = await Promise.all([
       Promise.all(
         [COUNTRY.US, COUNTRY.UK, COUNTRY.AU, COUNTRY.CA, COUNTRY.DE].map(
@@ -219,7 +232,8 @@ export default function App() {
     const pool = mergeWithFallback(charts.flat());
     homePoolRef.current = pool;
     refreshHomeSections(pool);
-  }, [refreshHomeSections]);
+    refreshRecommendations(pool, loadListeningHistory());
+  }, [refreshHomeSections, refreshRecommendations]);
   const refreshHitsSections = useCallback(() => {
     const { us, gb, jp, ph, latin } = chartPoolRef.current;
     setGlobalHits(sample(dedupeByTitleArtist([...us, ...gb]), 20));
@@ -292,6 +306,9 @@ export default function App() {
 
   async function playTrack(track, list, index) {
     if (!track) return;
+    const nextHistory = recordListening(track);
+    setListeningHistory(nextHistory);
+    refreshRecommendations(homePoolRef.current, nextHistory, searchResults);
     setCurrentTrack(track);
     if (list) setCurrentList(list);
     if (index !== undefined) setCurrentIndex(index);
@@ -358,6 +375,7 @@ export default function App() {
       playbackModeRef.current = "preview";
       audioRef.current.src = audioSource;
       audioRef.current.currentTime = 0;
+      audioRef.current.volume = volume / 100;
       audioRef.current
         .play()
         .then(() => setLoadingTrack(false))
@@ -432,7 +450,6 @@ export default function App() {
     else if (audioRef.current)
       audioRef.current.volume = Math.max(0, Math.min(1, Number(value) / 100));
   }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return undefined;
@@ -440,7 +457,8 @@ export default function App() {
       playbackModeRef.current === "preview" && setIsPlaying(true);
     const onPause = () =>
       playbackModeRef.current === "preview" && setIsPlaying(false);
-    const onEnded = () => playbackModeRef.current === "preview" && nextTrack();
+    const onEnded = () =>
+      playbackModeRef.current === "preview" && nextTrackRef.current();
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
     audio.addEventListener("ended", onEnded);
@@ -449,7 +467,7 @@ export default function App() {
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("ended", onEnded);
     };
-  }, [currentList, currentIndex]);
+  }, []);
   function handleSearch(value) {
     setSearchQuery(value);
     clearTimeout(searchTimer.current);
@@ -459,7 +477,9 @@ export default function App() {
       return;
     }
     searchTimer.current = setTimeout(async () => {
-      setSearchResults(await fetchSearch(value, 20));
+      const results = await fetchSearch(value, 20);
+      setSearchResults(results);
+      refreshRecommendations(homePoolRef.current, listeningHistory, results);
       setSearchActive(true);
     }, 300);
   }
@@ -467,6 +487,7 @@ export default function App() {
     setSearchQuery("");
     setSearchResults([]);
     setSearchActive(false);
+    refreshRecommendations(homePoolRef.current, listeningHistory);
   }
   async function showArtistTopHits(artist) {
     setModalOpen(true);
@@ -537,6 +558,7 @@ export default function App() {
           popTracks={popTracks}
           rnbTracks={rnbTracks}
           edmTracks={edmTracks}
+          recommendationTracks={recommendationTracks}
           onPlay={playTrack}
           onArtist={showArtistTopHits}
           onShuffleArtists={() => shuffleHomeSection(setNewArtists, null, 12)}
