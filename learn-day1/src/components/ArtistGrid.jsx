@@ -13,7 +13,12 @@ export default function ArtistGrid({ artists, onSelectArtist }) {
           onClick={() => onSelectArtist(track.artist)}
         >
           <img
-
+            className="artist-avatar"
+            src={track.cover || PLACEHOLDER_COVER}
+            alt={track.artist}
+            onError={(event) => {
+              event.currentTarget.src = PLACEHOLDER_COVER;
+            }}
           />
           <div className="media-title" style={{ textAlign: "center" }}>
             {track.artist}
