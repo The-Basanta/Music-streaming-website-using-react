@@ -106,7 +106,7 @@ export default function PlayerBar({
         onMouseEnter={onVolumeEnter}
         onMouseLeave={onVolumeLeave}
       >
-
+        <span className="volume-device">●</span>
         <span className="volume-percent">{volume}%</span>
         {volumeHovered && (
           <input
