@@ -5,7 +5,11 @@ export default function TrackGrid({ tracks, onPlay }) {
   if (!tracks.length) return <div className="empty-text">Loading songs...</div>;
   return (
     <div className="media-grid">
-
+      {tracks.map((track) => (
+        <div
+          className="media-card"
+          key={track.id}
+          onClick={() => onPlay(track, [track], 0)}
         >
           <div className="image-wrapper">
             <img
